@@ -1,0 +1,197 @@
+---
+title: "Midterm"
+author: "Cynthia Begay"
+output: html_document
+---
+Introduction: 
+The COVID Racial Data Tracker is a volunteer organization launched from The Atlantic and was created in collaboration between the COVID Tracking Project and the Boston University Center for Antiracist Research. On April 12, 2020, this team began collecting race and ethnicity data from every state and eventually US territories. The tracker is updated twice per week. This dataset includes the total number of COVID cases and number of reported deaths due to COVID by race and ethnicity. While this is the only COVID related dataset I could find that reports race and ethnicity, the project acknowledges this is not a comprehensive dataset on race and ethnicity. 
+As the COVID-19 pandemic unfolds, we are quickly learning about the disparity between race and COVID-19 cases. Currently Black, Indigenous, and Latinx people are most affected by COVID-19. As it stands, Black people have the highest disparity and are dying 2.3 times the rate of white people. American Indian and Alaska Native (AIAN) have the second highest disparity and currently have a death rate of 65 per 100,000 people compared to non-Hispanic white 43 per 100,000. Historically, AIAN communities are left out of the conversation when it comes to reporting data, especially emerging data like COVID-19 cases/deaths. The current national conversation around AIAN COVID disparities has been about (my tribe) the Navajo Nation, which at its worst, had the highest infection rate in the country (higher than New York in its peak). It is important to understand the rest of the landscape in the US when it comes to tribal communities as 70% of the AIAN population live in urban cities. I am using this project to explore AIAN COVID rates by state to understand where the highest disparities lie. The questions I will be exploring in this project are (1) which states reported the highest AIAN COVID cases in the US; (2) which states reported the highest AIAN COVID deaths in the US; (3) is there a correlation of AIAN COVID rates exclusive to states with a higher AIAN population per capita? 
+
+
+```{r setup, include=FALSE, eval=TRUE}
+knitr::opts_chunk$set(echo=TRUE)
+
+#install.packages(c("data.table","leaflet", "hmisc"))
+#install.packages("Hmisc")
+#install.packages("hrbrthemes")
+#install.packages("R.utils")
+#install.packages("lubridate")
+#install.packages("tufte")
+#install.packages("kableExtra")
+library(data.table)
+library(leaflet)
+library(tidyverse)
+library(hrbrthemes)
+library(gcookbook)
+library(dplyr)
+library(viridis)
+library(forcats)
+library(kableExtra)
+```
+
+
+
+```{r, include=FALSE}
+# 1. Read in the data
+
+setwd("/Users/cynthiabegay/PM-566-first-project/Final Project")
+Data_race <-data.table::fread("RaceData_Final.csv")
+
+dim(Data_race)
+head(Data_race)
+tail(Data_race)
+str(Data_race)
+summary(Data_race[,1:32])
+
+```
+Methods 
+	The dataset was acquired through The COVID Tracking Project’s website https://covidtracking.com/race. Although an API version of the dataset was advertised on the website, the race related data was only available as a .csv file. Variables assessed were date, state, state code, total COVID cases, AIAN COVID cases, total deaths, AIAN deaths. Day, month, year, and state code variables were created in the csv file prior to reading in the data. The cases total variable was converted from a character variable to an integer in excel. 
+Data wrangling
+Data variables were assessed using the str() function to understand the dataset variable classes; rows and columns were also assessed. The “State” variable is the only character variable; all other variable are integer variables. Before data exploration could be performed, the date variable was recreated into a date, month, and year variable in excel. All variables were checked to ensure data reflected between 4/12/2020 and 10/07/2020 when the data was retrieved. Data was limited to variables of interest: day, month, year, state, cases_AIAN, cases_total, deaths_AIAN, deaths_total. There are 2601 observations and 8 variables present. 
+The head and tail of the dataset was assessed to ensure the data was read in properly. The cases total variable was validated against current reported data to ensure that the dataset did not exceed what has been reported by the CDC. 
+Missing values were assessed with the dim function. Missing values in this dataset are both reflected as actual missing data not reported by the state, but also zero values. This has become problematic in this initial data wrangling, but I believe there may be a way to reconcile any “missing” data prior to the first case reported for each variable, which can be interpreted as a 0 or N/A value. 
+A sub dataset was created to reflect the most recent values as of 10/04/2020 since Covid numbers reported in this dataset are addictive and not a reflection of daily updates. 
+
+
+```{r, include=FALSE}
+#Variables of interest are day, month, year, state, total cases, AIAN cases, AIAN deaths
+Data_race <- Data_race %>% select (Month, Day, Year, State, State_Code, Cases_AIAN, Cases_Total, Deaths_AIAN, Deaths_Total)
+str(Data_race)
+dim(Data_race)
+
+table(Data_race$Day)
+table(Data_race$Month)
+table(Data_race$Year)
+table(Data_race$State)
+summary(Data_race$Cases_Total)
+summary(Data_race$Cases_AIAN)
+summary(Data_race$Deaths_Total)
+summary(Data_race$Deaths_AIAN)
+```
+
+```{r, include=FALSE}
+#Checking missing values for variable of interest
+dim(Data_race[is.na(Cases_AIAN)])[1]/dim(Data_race)[1]
+```
+
+```{r, include=FALSE}
+#Missing AIAN cases were removed
+Data_race4 <- Data_race %>%
+  filter(!(Cases_AIAN %in% NA)) 
+
+#Verify that missing AIAN cases were removed
+dim(Data_race4[is.na(Cases_AIAN)])[1]/dim(Data_race4)[1]
+
+Data_race7 <- Data_race4[order(Cases_AIAN)]
+head(Data_race7)
+tail(Data_race7)
+summary(Data_race7$Cases_AIAN)
+```
+```{r, include=FALSE}
+#create recent dataset reflecting most recent numbers 10/04/2020
+recent <- Data_race[which(Data_race$'Month' == 10, 'Day' ==4, 'Year' ==2020)]
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+hist(Data_race$Cases_AIAN)
+hist(Data_race$Cases_Total)
+hist(Data_race$Deaths_AIAN)
+hist(Data_race$Deaths_Total)
+
+boxplot(Cases_AIAN ~ State, data = Data_race, col="red", las = 2) 
+```
+
+Preliminary Results
+
+AIAN COVID Cases by State
+
+According to the scatter plot by states, the highest cases reported were in Arizona, New Mexico and Oklahoma. All 3 states reported cases as of April 12, 2020. The lowest cases were in the Northeast and East Coast states—this may be due to the lower number of AIAN population. According to the individual scatterplot, the majority of cases reported in Arizona were between June and August. (This time line coincides with the national reporting of the high rates on the Navajo Nation.) According to the individual scatter plot for New Mexico, the highest reported cases were between April and August. The reported cases may have tapered off due to the contact tracing efforts organized by the Pueblo tribal communities. According to the individual scatter plot for Oklahoma, most cases were reported between July and September—there was a delay in COVID cases reaching this part of the country. 
+
+AIAN Death Rates by State
+
+According to the individual boxplots, Arizona had the highest AIAN death rates followed by New Mexico. Mississippi reported slightly higher deaths rates just above Oklahoma. Arizona’s AIAN COVID death rates had a similar linear regression line as the AIAN COVID cases rates. The AIAN deaths rates in AZ were mostly reported between May and August. AIAN death rates in New Mexico were not reported until June and have a much smaller rate than Arizona. Although Oklahoma reported higher AIAN cases, according to the scatterplot, their AIAN death rates are similar to the rest of the country. 
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+Data_race %>% 
+  filter(!(Cases_AIAN %in% NA)) %>%
+  ggplot(mapping = aes(x=Month, y= Cases_AIAN, color=State))+
+  geom_point()+
+  stat_smooth(method=lm)+
+  labs(x="Month", y="Number of AIAN Covid Cases",
+       title="AIAN Covid Cases by State from 04/12/2020 to 10/04/2020",
+       caption="A visual showing the association between AIAN Covid Cases and State")
+
+
+Data_race %>% 
+ggplot()+
+  geom_boxplot(mapping = aes(y=Cases_AIAN, fill=State)) +
+  xlab("") +
+  facet_wrap(~State, nrow=3.5)
+```
+
+```{r, include=FALSE}
+Data_race %>% 
+  filter((State == 'AZ')) %>%
+  ggplot(mapping = aes(x=Month, y= Cases_AIAN, color=State))+
+  geom_point()+
+  stat_smooth(method=lm)
+
+
+Data_race %>% 
+  filter((State == 'NM')) %>%
+  ggplot(mapping = aes(x=Month, y= Cases_AIAN, color=State))+
+  geom_point()+
+  stat_smooth(method=lm)
+
+
+Data_race %>% 
+  filter((State == 'OK')) %>%
+  ggplot(mapping = aes(x=Month, y= Cases_AIAN, color=State))+
+  geom_point()+
+  stat_smooth(method=lm)
+
+
+Data_race10 <- ggplot(data = Data_race, aes(x = Cases_AIAN)) + geom_histogram(binwidth = 1000)
+Data_race10+ facet_wrap(~State, scales = 'free_y', nrow=5)
+
+
+```
+
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+boxplot(Deaths_AIAN ~ State, data = Data_race, col="red", las = 2) 
+
+
+Data_race %>% 
+  filter(!(Deaths_AIAN %in% NA)) %>%
+  ggplot(mapping = aes(x=Month, y= Deaths_AIAN, color=State))+
+  geom_point()+
+  stat_smooth(method=lm)+
+  labs(x="Month", y="Number of AIAN Covid Deaths",
+       title="AIAN Covid Deaths by State from 04/12/2020 to 10/04/2020",
+       caption="A visual showing the association between AIAN Covid Deaths by State")
+
+Data_race %>% 
+ggplot()+
+  geom_boxplot(mapping = aes(y=Deaths_AIAN, fill=State)) +
+  xlab("") +
+  facet_wrap(~State, nrow=3.5)
+```
+
+```{r, include=FALSE}
+Data_race11 <- ggplot(data = Data_race, aes(x = Deaths_AIAN)) + geom_histogram(binwidth = 1000)
+Data_race11+ facet_wrap(~State, scales = 'free_y', nrow=5)
+```
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+recent %>%
+  kbl(caption = "Summary table of AIAN COVID Cases and Deaths by State as of 10/04/2020.") %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  add_header_above(c("Date"=3, "State" = 2, "Covid-19 Cases" = 2, "Covid-19 Deaths" = 2))
+```
+
+Conclusion
+The highest rates of COVID-19 cases among American Indian and Alaska Natives is in Arizona, New Mexico, and Oklahoma. The biggest limitation to this preliminary analysis is addressing missing values as cases were not reported as "0" but rather as missing.  As mentioned in the introduction, the Navajo nation reported the highest infection rate in April. The Navajo nation is located in Arizon, New Mexico, and a small part of Utah; this may explain the high rates reported in Arizona and New Mexico. Furthermore, there were Pueblo tribes starkly affected by the disease which are located in New Mexico. Although California and New York have the highest population of AIAN per capita, all 3 states reporting the highest COVID-19 cases have a large population of rural tribal communities. Many people in these rural tribal communities do not have access to internet or running water both of which are necessary to receive evolving pandemic messaging in real time and to take safety precautions such as washing your hands. 
+The highest death rates for Covid-19 were in Arizon and New Mexico. Covid-19 death rates were high in Arizona but tapered off in New Mexico and were very minimal in Oklahoma. Additionally, death rates were not reported until June for New Mexico and Oklahoma. This may have been due to the robust contract tracing done in the Pueblo tribal communities as reported by New York Times. They were able to test tribal members quickly and get them care before cases became too serious.   
